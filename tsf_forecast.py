@@ -6,11 +6,12 @@ from tsf.grid_search import TSFGridSearch
 
 from sklearn.linear_model import LassoCV
 from sklearn.neural_network import MLPRegressor, MLPClassifier
-from sklearn.metrics import mean_squared_error, confusion_matrix
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import mean_squared_error, confusion_matrix, accuracy_score, make_scorer
+from sklearn.ensemble import RandomForestClassifier
 
 from reporter import TSFReporter
 
+from metrics import *
 import time
 import random
 import numpy as np
@@ -74,16 +75,18 @@ def split_train_test(data, test_ratio):
         return data[:, :train_samples], data[:, train_samples:]
 
 
-def get_estimator(estimator):
+def get_estimator(estimator, seed):
     if estimator == 0:
-        return LassoCV()
+        return LassoCV(random_state=seed)
     if estimator == 1:
-        return MLPRegressor()
+        return MLPRegressor(random_state=seed)
     if estimator == 2:
-        return MLPClassifier()
+        return MLPClassifier(random_state=seed)
+    if estimator == 3:
+        return RandomForestClassifier(random_state=seed)
 
 
-def create_pipe(pipe_steps, estimator):
+def create_pipe(pipe_steps, estimator, seed):
     steps = []
     if pipe_steps['cc']:
         steps.append(("cc", ClassChange()))
@@ -92,7 +95,7 @@ def create_pipe(pipe_steps, estimator):
     if pipe_steps['ar']:
         steps.append(("ar", SimpleAR()))
     if pipe_steps['model']:
-        steps.append(("model", get_estimator(estimator)))
+        steps.append(("model", get_estimator(estimator, seed)))
     return TSFPipeline(steps)
 
 
@@ -133,7 +136,7 @@ def configuration():
     # parameters of the windows model
     tsf_config = {
         'horizon': 1,   # Forecast distance
-        'ar': {         # Standar autorregresive parameters
+        'ar': {         # Standard autorregresive parameters
             'ar__n_prev': [1, 2]                        # Number of previous samples to use
         },
         'dw': {         # Dinamic Window based on stat limit parameters
@@ -174,6 +177,7 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed):
     reporter.set_files(files)
 
     # Set the seed
+    np.random.seed(seed)
     random.seed(seed)
     reporter.set_seed(seed)
 
@@ -182,7 +186,7 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed):
         data[0] = map(umbralizer, data[0])
 
     # Create pipe and set the config
-    pipe = create_pipe(pipe_steps, model_config['estimator'])
+    pipe = create_pipe(pipe_steps, model_config['estimator'], seed)
     reporter.set_pipe_steps(pipe_steps)
     params = get_params(pipe_steps, tsf_config, model_config)
     reporter.set_param_grid(tsf_config)
@@ -193,7 +197,8 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed):
     reporter.set_test_ratio(test_ratio)
 
     # Create and fit TSFGridSearch
-    gs = TSFGridSearch(pipe, params, n_jobs=-1)
+    scoring = make_scorer(ms, greater_is_better=False)
+    gs = TSFGridSearch(pipe, params, n_jobs=-1, scoring=scoring)
     gs.fit(X=[], y=train)
     reporter.set_best_configuration(gs.best_params_)
 

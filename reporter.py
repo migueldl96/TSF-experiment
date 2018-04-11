@@ -69,10 +69,12 @@ class TSFReporter:
             rows.append(["\n", ""])
 
             # Experiment configuration
-            rows.append(["Seed: ", self.seed])
-            rows.append(["Files: ", self.files])
+            rows.append(["Seed: ", str(self.seed)])
+            rows.append(["Endog serie file: ", self.files[0]])
+            if len(self.files) > 1:
+                rows.append(["Exog series files: ", self.files[1:]])
             rows.append(["Test ratio: ", self.test_ratio])
-            rows.append(["Horizon: ", self.horizon])
+            rows.append(["Horizon: ", str(self.horizon)])
             rows.append(["Windows used:", ""])
             if self.steps['ar']:
                 rows.append(["SimpleAR", "Parameters grid:"])
