@@ -18,6 +18,9 @@ import numpy as np
 import pandas as pd
 
 from sacred import Experiment
+from sacred.observers import FileStorageObserver
+
+from scipy.stats.mstats import gmean
 
 import sys
 reload(sys)
@@ -40,9 +43,32 @@ def umbralizer(sample):
 
 # Experiment object
 ex = Experiment()
+ex.observers.append(FileStorageObserver.create('reports'))
 
 # Reporter object
 reporter = TSFReporter()
+
+# Scoring functions
+SCORERS = {
+    # 'name': [function, greater_is_better]
+    'amae': [amae, False],
+    'gm': [gm, True],
+    'mae': [mae, False],
+    'mmae': [mmae, False],
+    'ms': [ms, True],
+    'mze': [mze, False],
+    'tkendall': [tkendall, False],
+    'wkappa': [wkappa, True],
+    'spearman': [spearman, True]
+}
+
+# Models
+MODELS = {
+    'LassoCV': LassoCV,
+    'RandomForestClassifier': RandomForestClassifier,
+    'MLPClassifier': MLPClassifier,
+    'MLPRegressor': MLPRegressor
+}
 
 
 def read_data(files):
@@ -75,17 +101,6 @@ def split_train_test(data, test_ratio):
         return data[:, :train_samples], data[:, train_samples:]
 
 
-def get_estimator(estimator, seed):
-    if estimator == 0:
-        return LassoCV(random_state=seed)
-    if estimator == 1:
-        return MLPRegressor(random_state=seed)
-    if estimator == 2:
-        return MLPClassifier(random_state=seed)
-    if estimator == 3:
-        return RandomForestClassifier(random_state=seed)
-
-
 def create_pipe(pipe_steps, estimator, seed):
     steps = []
     if pipe_steps['cc']:
@@ -95,13 +110,14 @@ def create_pipe(pipe_steps, estimator, seed):
     if pipe_steps['ar']:
         steps.append(("ar", SimpleAR()))
     if pipe_steps['model']:
-        steps.append(("model", get_estimator(estimator, seed)))
+        steps.append(("model", MODELS[estimator](random_state=seed)))
     return TSFPipeline(steps)
 
 
 def get_params(pipe_steps, tsf_config, model_config):
     params = []
     TSFBaseTransformer.horizon = tsf_config['horizon']
+    ex.info['horizon'] = tsf_config['horizon']
     reporter.set_horizon(tsf_config['horizon'])
     if pipe_steps['ar']:
         params.append(tsf_config['ar'])
@@ -114,6 +130,24 @@ def get_params(pipe_steps, tsf_config, model_config):
 
     return params
 
+
+def set_best_params(best_config):
+    best_params = {}
+    # SimpleAR
+    best_params.update({'ar': {}})
+    [best_params['ar'].update({key: value}) for key, value in best_config.iteritems() if 'ar__' in key.lower()]
+    # DinamicWindow
+    best_params.update({'dw': {}})
+    [best_params['dw'].update({key: value}) for key, value in best_config.iteritems() if 'dw__' in key.lower()]
+    # ClassChange
+    best_params.update({'cc': {}})
+    [best_params['cc'].update({key: value}) for key, value in best_config.iteritems() if 'cc__' in key.lower()]
+    best_params.update({'cc': {}})
+    # Model
+    best_params.update({'model': {}})
+    [best_params['model'].update({key[7:]: value}) for key, value in best_config.iteritems() if 'model__' in key.lower()]
+
+    ex.info['best_params'] = best_params
 
 @ex.config
 def configuration():
@@ -155,7 +189,8 @@ def configuration():
     # parameters of the estimator model
     model_config = {
         'type': 'regression',
-        'estimator': 0,
+        'estimator': "LassoCV",
+        'scoring': 'amae',
         'params': {
 
         }
@@ -168,15 +203,21 @@ def rvr():
 
 
 @ex.automain
-def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed):
+def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, _run):
+
+    ex.info['run_id'] = _run._id
 
     start = time.time()
 
     # Read the data
     data = read_data(files)
     reporter.set_files(files)
+    ex.info['endog'] = files[0]
+    if len(files) > 1:
+        ex.info['exogs'] = files[1:]
 
     # Set the seed
+    ex.info['seed'] = seed
     np.random.seed(seed)
     random.seed(seed)
     reporter.set_seed(seed)
@@ -197,9 +238,11 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed):
     reporter.set_test_ratio(test_ratio)
 
     # Create and fit TSFGridSearch
-    scoring = make_scorer(ms, greater_is_better=False)
-    gs = TSFGridSearch(pipe, params, n_jobs=-1, scoring=scoring)
+    scorer = SCORERS[model_config['scoring']]
+    scoring = make_scorer(scorer[0], greater_is_better=scorer[1])
+    gs = TSFGridSearch(pipe, params, scoring=scoring)
     gs.fit(X=[], y=train)
+    set_best_params(gs.best_params_)
     reporter.set_best_configuration(gs.best_params_)
 
     # Predict using Pipeline
@@ -213,17 +256,23 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed):
     reporter.set_test_series(true_test, predicted_test)
 
     # Performance
-    mse_train = mean_squared_error(true_train, predicted_train)
-    mse_test = mean_squared_error(true_test, predicted_test)
-
     if model_config['type'] == 'regression':
+        mse_train = mean_squared_error(true_train, predicted_train)
+        mse_test = mean_squared_error(true_test, predicted_test)
+        ex.info['performance'] = {"mse": {}}
+        ex.info['performance']['mse'] = {"train": mse_train, "test": mse_test}
+
         reporter.set_mse_performance(mse_test, mse_train)
 
     elif model_config['type'] == 'classification':
         ccr_train = accuracy_score(true_train, predicted_train)
         ccr_test = accuracy_score(true_test, predicted_test)
+        ex.info['performance'] = {"ccr": {}}
+        ex.info['performance']['ccr'] = {"train": ccr_train, "test": ccr_test}
         cm = confusion_matrix(true_test, predicted_test)
         tprs = [float(cm[index, index])/np.sum(cm, axis=1)[index] for index in range(0, cm.shape[0])]
+        ex.info['performance']['ms'] = min(tprs)
+        ex.info['performance']['gm'] = gmean(tprs)
 
         reporter.set_ccr_performance(ccr_test, ccr_train)
         reporter.set_sensitivity(tprs)

@@ -1,0 +1,270 @@
+## -*- coding: utf-8 -*-
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>TSF Experiment ${info['run_id']}</title>
+
+    <style>
+    hardtitle {
+        font-family: 'Walkway Ultrabold';
+    }
+    soft {
+        color: #a4a4a4;
+        font-size: 65%;
+    }
+    .subtitle {
+        border-bottom: 1px #bdbdbd solid;
+        margin: 0 5%;
+        font-size: 20px;
+    }
+    number {
+        font-size: 20px;
+        color: gray;
+        font-family: 'Walkway Bold';
+    }
+
+    body {
+        font-family: 'Avenir Next';
+        font-size: 70%;
+        background-color: #f1f4f5;
+    }
+
+    h1 {
+        text-align: center;
+        font-size: 30px;
+        font-family: 'Walkway Semibold';
+        margin: 30px;
+    }
+    h2 {
+        border-bottom: 1px #00000070 solid;
+        text-align: center;
+    }
+    table {
+        margin: 10px 5% 45px;
+        font-size: 120%;
+    }
+    .parameterstable {
+        margin: 0;
+        width: 50%;
+        float: right;
+        text-align: center;
+    }
+    ul {
+        list-style: none;
+        padding: 0;
+    }
+    .params {
+        text-align: left;
+        vertical-align: top;
+        padding-right: 10px;
+    }
+    li {
+        font-weight: lighter;
+    }
+</style>
+</head>
+
+<body>
+
+<%
+from datetime import datetime
+import dateutil.parser
+
+import matplotlib.pyplot as plt
+
+def plot(obj, t):
+    fig, ax = plt.subplots(figsize=(4, 3))
+    ax.plot(obj)
+    fig.savefig(t + '.png', bbox_inches='tight', pad_inches=0)
+    return '<img src="{}.png" width="300px"></img>'.format(t)
+%>
+
+<%def name="conf(obj)">
+    % if isinstance(obj, dict):
+        <ul>
+        % for k, v in sorted(obj.items()):
+            <li><b>${k}</b>${cfg(v)}</li>
+        % endfor
+        </ul>
+    % else:
+        = ${obj}
+    % endif
+</%def>
+
+<h1><hardtitle>TSF</hardtitle> Experiment <number>#${info['run_id'] }</number></h1>
+
+<div class="subtitle">General info | <soft>General information about the experiment</soft></div>
+<table>
+    <tr><td>Status</td><td>${run['status'] }</td></tr>
+    <tr><td>Elapsed Time</td><td>${(dateutil.parser.parse(run['stop_time']) - dateutil.parser.parse(run['start_time'])).total_seconds() / 60 } minutes</td></tr>
+    <tr><td>Start Time</td><td>${run['start_time']}</td></tr>
+    <tr><td>Stop Time</td><td>${run['stop_time']}</td></tr>
+    <tr><td>Heartbeat</td><td>${run['heartbeat']}</td></tr>
+</table>
+
+<div class="subtitle">Machine info | <soft>Software & Hardware information</soft></div>
+<table>
+    <tr><td>CPU</td><td>${run['host']['cpu'] }</td></tr>
+    <tr><td>OS</td><td>${run['host']['os'] }</td></tr>
+    <tr><td>Hostname</td><td>${run['host']['hostname'] }</td></tr>
+    <tr><td>Python version</td><td>${run['host']['python_version'] }</td></tr>
+</table>
+</body>
+
+<div class="subtitle">Experiment configuration | <soft>General parameters and parameters grid for windows and estimator</soft></div>
+
+<table>
+    <tr><td>Random seed</td><td>${info['seed'] }</td></tr>
+    <tr><td>Test ratio</td><td>${config['test_ratio'] }</td></tr>
+    <tr><td>Endogenous serie</td><td>${info['endog'] }</td></tr>
+    % if 'exogs' in info:
+        <tr><td>Exogenous series</td><td>${info['exogs'] }</td></tr>
+    % endif
+    <tr><td>Horizon</td><td>${info['horizon'] }</td></tr>
+    <tr><td>Scoring function</td><td>${config['model_config']['scoring'] }</td></tr>
+</table>
+    <div style="margin: 0 5%;height: 200px;border-right: 1px dotted #0006;border-left: 1px dotted #0006;margin-bottom: 45px;">
+    <table class="parameterstable" style="float: left;height: 200p;border-right: 1px dotted #0006;">
+  <tbody><tr>
+    <th class="tg-us36" colspan="3" style="font-weight: normal;font-size: 16px;">Windows and parameters grid</th>
+  </tr>
+  <tr>
+      % if config['pipe_steps']['ar'] == True:
+        <td class="tg-us36" style="width: 170px;">SimpleAR<br></td>
+      % endif
+      % if config['pipe_steps']['dw'] == True:
+        <td class="tg-us36">DinamicWindow<br></td>
+      % endif
+      % if config['pipe_steps']['cc'] == True:
+        <td class="tg-us36">ClassChange</td>
+      % endif
+  </tr>
+    <tr>
+        % if config['pipe_steps']['ar'] == True:
+            <td class="params"><ul>
+            % for key, value in config['tsf_config']['ar'].iteritems():
+                <li><b>${key}</b>: ${value}</li>
+            % endfor
+            </ul></td>
+        % endif
+
+        % if config['pipe_steps']['dw'] == True:
+            <td class="params"><ul>
+            % for key, value in config['tsf_config']['dw'].iteritems():
+                <li><b>${key}</b>: ${value}</li>
+            % endfor
+            </ul></td>
+        % endif
+
+        % if config['pipe_steps']['cc'] == True:
+            <td class="params"><ul>
+            % for key, value in config['tsf_config']['cc'].iteritems():
+                <li><b>${key}</b>: ${value}</li>
+            % endfor
+            </ul></td>
+        % endif
+  </tr>
+  </tbody></table>
+
+    <table class="parameterstable" style="float: right;">
+  <tbody><tr>
+    <th class="tg-us36" colspan="3" style="font-weight: normal;font-size: 16px;">Final estimator and parameters grid</th>
+  </tr>
+  <tr>
+      % if config['pipe_steps']['model'] == True:
+        <td class="tg-us36">${config['model_config']['estimator']} <br></td>
+      % endif
+  </tr>
+    <tr>
+        % if config['pipe_steps']['model'] == True:
+            <td class="params"><ul>
+            % for key, value in config['model_config']['params'].iteritems():
+                <li><b>${key}</b>: ${value}</li>
+            % endfor
+            </ul></td>
+        % endif
+  </tr>
+  </tbody></table>
+    </div>
+
+<div class="subtitle">Best experiment configuration | <soft>Based on GridSearch hiperparameters optimization</soft></div>
+<div style="margin: 0 5%;height: 200px;border-right: 1px dotted #0006;border-left: 1px dotted #0006;margin-top: 20px;margin-bottom: 45px;">
+    <table class="parameterstable" style="float: left;height: 200p;border-right: 1px dotted #0006;">
+  <tbody><tr>
+    <th class="tg-us36" colspan="3" style="font-weight: normal;font-size: 16px;">Windows best configuration</th>
+  </tr>
+  <tr>
+      % if config['pipe_steps']['ar'] == True:
+        <td class="tg-us36" style="width: 170px;">SimpleAR<br></td>
+      % endif
+      % if config['pipe_steps']['dw'] == True:
+        <td class="tg-us36">DinamicWindow<br></td>
+      % endif
+      % if config['pipe_steps']['cc'] == True:
+        <td class="tg-us36">ClassChange</td>
+      % endif
+  </tr>
+    <tr>
+        % if config['pipe_steps']['ar'] == True:
+            <td class="params"><ul>
+            % for key, value in info['best_params']['ar'].iteritems():
+                <li><b>${key}</b>: ${value}</li>
+            % endfor
+            </ul></td>
+        % endif
+
+        % if config['pipe_steps']['dw'] == True:
+            <td class="params"><ul>
+            % for key, value in info['best_params']['dw'].iteritems():
+                <li><b>${key}</b>: ${value}</li>
+            % endfor
+            </ul></td>
+        % endif
+
+        % if config['pipe_steps']['cc'] == True:
+            <td class="params"><ul>
+            % for key, value in info['best_params']['cc'].iteritems():
+                <li><b>${key}</b>: ${value}</li>
+            % endfor
+            </ul></td>
+        % endif
+  </tr>
+  </tbody></table>
+
+    <table class="parameterstable" style="float: right;">
+  <tbody><tr>
+    <th class="tg-us36" colspan="3" style="font-weight: normal;font-size: 16px;">Final estimator best configuration</th>
+  </tr>
+  <tr>
+      % if config['pipe_steps']['model'] == True:
+        <td class="tg-us36">${config['model_config']['estimator']} <br></td>
+      % endif
+  </tr>
+    <tr>
+        % if config['pipe_steps']['model'] == True:
+            <td class="params"><ul>
+            % for key, value in info['best_params']['model'].iteritems():
+                <li><b>${key}</b>: ${value}</li>
+            % endfor
+            </ul></td>
+        % endif
+  </tr>
+  </tbody></table>
+    </div>
+
+<div class="subtitle">Experiment performance | <soft>Train and test datasets performance</soft></div>
+<table>
+    <tr><td>Estimation type </td><td>${config['model_config']['type'] }</td></tr>
+    % if config['model_config']['type'] == "classification":
+        <tr><td>Train CCR</td><td>${info['performance']['ccr']['train'] }</td></tr>
+        <tr><td>Test CCR</td><td>${info['performance']['ccr']['test'] }</td></tr>
+        <tr><td>Minimun sensitivity</td><td>${info['performance']['ms'] }</td></tr>
+        <tr><td>Sensitivity GM</td><td>${info['performance']['gm'] }</td></tr>
+    % endif
+    % if config['model_config']['type'] == "regression":
+        <tr><td>Train MSE</td><td>${info['performance']['mse']['train'] }</td></tr>
+        <tr><td>Test MSE</td><td>${info['performance']['mse']['test'] }</td></tr>
+    % endif
+</table>
+</html>

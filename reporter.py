@@ -75,6 +75,7 @@ class TSFReporter:
                 rows.append(["Exog series files: ", self.files[1:]])
             rows.append(["Test ratio: ", self.test_ratio])
             rows.append(["Horizon: ", str(self.horizon)])
+            rows.append(["Scoring: ", self.model_config['scoring']])
             rows.append(["Windows used:", ""])
             if self.steps['ar']:
                 rows.append(["SimpleAR", "Parameters grid:"])
@@ -100,8 +101,7 @@ class TSFReporter:
             rows.append(["Windows best configuration:", ""])
             if self.steps['ar']:
                 rows.append(["SimpleAR", "Best params:"])
-                [rows.append(["", key + ": " + str(value)]) for key, value in self.best_conf.iteritems()
-                 if 'ar__' in key.lower()]
+                [rows.append(["", key + ": " + str(value)]) for key, value in self.best_conf.iteritems() if 'ar__' in key.lower()]
             if self.steps['dw']:
                 rows.append(["DinamicWindow", "Best params:"])
                 [rows.append(["", key + ": " + str(value)]) for key, value in self.best_conf.iteritems()
