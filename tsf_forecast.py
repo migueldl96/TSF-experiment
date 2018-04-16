@@ -4,7 +4,7 @@ from tsf.windows import *
 from tsf.pipeline import TSFPipeline
 from tsf.grid_search import TSFGridSearch
 
-from sklearn.linear_model import LassoCV
+from sklearn.linear_model import LassoCV, LogisticRegressionCV
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.metrics import mean_squared_error, confusion_matrix, accuracy_score, make_scorer
 from sklearn.ensemble import RandomForestClassifier
@@ -12,7 +12,6 @@ from sklearn.ensemble import RandomForestClassifier
 from reporter import TSFReporter
 
 from metrics import *
-import time
 import random
 import numpy as np
 import pandas as pd
@@ -44,9 +43,6 @@ def umbralizer(sample):
 # Experiment object
 ex = Experiment()
 ex.observers.append(FileStorageObserver.create('reports'))
-
-# Reporter object
-reporter = TSFReporter()
 
 # Scoring functions
 SCORERS = {
@@ -118,7 +114,7 @@ def get_params(pipe_steps, tsf_config, model_config):
     params = []
     TSFBaseTransformer.horizon = tsf_config['horizon']
     ex.info['horizon'] = tsf_config['horizon']
-    reporter.set_horizon(tsf_config['horizon'])
+
     if pipe_steps['ar']:
         params.append(tsf_config['ar'])
     if pipe_steps['dw']:
@@ -151,19 +147,19 @@ def set_best_params(best_config):
 
 @ex.config
 def configuration():
-    seed = 0
+    seed = 1
 
     # ratio of samples for testing
     test_ratio = 0.3
 
     # files where time series are located
-    files = ["temp.txt"]
+    files = ["RVR.txt", "humidity.txt", "windDir.txt", "windSpeed.txt", "QNH.txt", "temp.txt"]
 
     # steps of the model
     pipe_steps = {
         'ar': True,     # Standard autorregresive model using fixed window
         'dw': True,     # Dinamic Window based on stat limit
-        'cc': False,    # Dinamic Window based on class change (classification oriented)
+        'cc': True,    # Dinamic Window based on class change (classification oriented)
         'model': True   # Final estimator used for forecasting
     }
 
@@ -171,12 +167,12 @@ def configuration():
     tsf_config = {
         'horizon': 1,   # Forecast distance
         'ar': {         # Standard autorregresive parameters
-            'ar__n_prev': [1, 2]                        # Number of previous samples to use
+            'ar__n_prev': [2, 3, 4, 5, 6, 7, 8]         # Number of previous samples to use
         },
         'dw': {         # Dinamic Window based on stat limit parameters
             'dw__stat': ['variance'],                   # Stat to calculate window size
             'dw__metrics': [['mean', 'variance']],      # Stats to resume information of window
-            'dw__ratio': [0.1],                         # Stat ratio to limit window size
+            'dw__ratio': [0.1, 0.15, 0.2],                         # Stat ratio to limit window size
             'dw__indexs': [None]                        # Indexs of series to be used
         },
         'cc': {         # Dinamic window based on class change parameters
@@ -188,12 +184,7 @@ def configuration():
 
     # parameters of the estimator model
     model_config = {
-        'type': 'regression',
-        'estimator': "LassoCV",
-        'scoring': 'amae',
-        'params': {
 
-        }
     }
 
 
@@ -206,12 +197,10 @@ def rvr():
 def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, _run):
 
     ex.info['run_id'] = _run._id
-
-    start = time.time()
+    reporter = TSFReporter(_run._id)
 
     # Read the data
     data = read_data(files)
-    reporter.set_files(files)
     ex.info['endog'] = files[0]
     if len(files) > 1:
         ex.info['exogs'] = files[1:]
@@ -220,7 +209,6 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, _run):
     ex.info['seed'] = seed
     np.random.seed(seed)
     random.seed(seed)
-    reporter.set_seed(seed)
 
     # Umbralizer
     if model_config['type'] == "classification":
@@ -228,14 +216,10 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, _run):
 
     # Create pipe and set the config
     pipe = create_pipe(pipe_steps, model_config['estimator'], seed)
-    reporter.set_pipe_steps(pipe_steps)
     params = get_params(pipe_steps, tsf_config, model_config)
-    reporter.set_param_grid(tsf_config)
-    reporter.set_model_config(model_config, pipe.steps[-1][1].__class__.__name__)
 
     # Split
     train, test = split_train_test(data, test_ratio)
-    reporter.set_test_ratio(test_ratio)
 
     # Create and fit TSFGridSearch
     scorer = SCORERS[model_config['scoring']]
@@ -243,7 +227,6 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, _run):
     gs = TSFGridSearch(pipe, params, scoring=scoring)
     gs.fit(X=[], y=train)
     set_best_params(gs.best_params_)
-    reporter.set_best_configuration(gs.best_params_)
 
     # Predict using Pipeline
     predicted_train = gs.predict(train)
@@ -256,13 +239,12 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, _run):
     reporter.set_test_series(true_test, predicted_test)
 
     # Performance
+    reporter.set_task_type(model_config['type'])
     if model_config['type'] == 'regression':
         mse_train = mean_squared_error(true_train, predicted_train)
         mse_test = mean_squared_error(true_test, predicted_test)
         ex.info['performance'] = {"mse": {}}
         ex.info['performance']['mse'] = {"train": mse_train, "test": mse_test}
-
-        reporter.set_mse_performance(mse_test, mse_train)
 
     elif model_config['type'] == 'classification':
         ccr_train = accuracy_score(true_train, predicted_train)
@@ -274,12 +256,7 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, _run):
         ex.info['performance']['ms'] = min(tprs)
         ex.info['performance']['gm'] = gmean(tprs)
 
-        reporter.set_ccr_performance(ccr_test, ccr_train)
-        reporter.set_sensitivity(tprs)
         reporter.set_confusion_matrix(cm)
 
-    end = time.time()
-
-    reporter.set_exec_time(end-start)
     reporter.save()
 

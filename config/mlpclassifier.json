@@ -1,33 +1,17 @@
 {
-  "seed": 1,
-  "test_ratio": 0.1,
-  "files": ["RVR.txt", "humidity.txt", "windDir.txt", "windSpeed.txt", "QNH.txt", "temp.txt"],
-
   "pipe_steps": {
     "ar": true,
     "dw": true,
     "cc": true
   },
 
-  "tsf_config": {
-    "horizon": 1,
-    "ar": {
-      "ar__n_prev": [7]
-    },
-    "dw": {
-      "dw__ratio": [0.2],
-      "dw__indexs": [[1, 2, 3, 4, 5]]
-    },
-    "cc": {
-
-    }
-  },
-
   "model_config": {
         "type": "classification",
-        "estimator": 2,
+        "estimator": "MLPClassifier",
+        "scoring": "ms",
         "params": {
-          "hidden_layer_sizes": [100]
+          "hidden_layer_sizes": [80, 90, 100, 110],
+          "momentum": [0.8, 0.85, 0.9]
         }
     }
 }
