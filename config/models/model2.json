@@ -1,0 +1,17 @@
+{
+  "files": ["RVR.txt", "humidity.txt", "windDir.txt", "windSpeed.txt", "QNH.txt", "temp.txt"],
+  "model_config": {
+        "type": "classification",
+        "estimator": "RandomForestClassifier",
+        "scoring": "ms",
+        "params": {
+          "n_estimators": [7, 8, 9, 10, 11, 12],
+          "max_features": ["auto", "log2", 0.2]
+        }
+    },
+  "tsf_config": {
+    "dw": {
+      "dw__indexs": [[1, 2, 3, 4]]
+    }
+  }
+}

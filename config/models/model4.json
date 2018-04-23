@@ -1,0 +1,12 @@
+{
+  "files": ["temp.txt", "humidity.txt", "windDir.txt", "windSpeed.txt", "QNH.txt"],
+  "model_config": {
+        "type": "regression",
+        "estimator": "MLPRegressor",
+        "scoring": "mse",
+        "params": {
+          "hidden_layer_sizes": [80, 90, 100, 110, 120],
+          "momentum": [0.8, 0.85, 0.9]
+        }
+    }
+}

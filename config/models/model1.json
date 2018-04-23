@@ -1,0 +1,17 @@
+{
+  "files": ["RVR.txt", "humidity.txt", "windDir.txt", "windSpeed.txt", "QNH.txt", "temp.txt"],
+  "model_config": {
+        "type": "classification",
+        "estimator": "MLPClassifier",
+        "scoring": "ms",
+        "params": {
+          "hidden_layer_sizes": [80, 90, 100, 110, 120],
+          "momentum": [0.8, 0.85, 0.9]
+        }
+    },
+  "tsf_config": {
+    "dw": {
+      "dw__indexs": [[1, 2, 3, 4]]
+    }
+  }
+}

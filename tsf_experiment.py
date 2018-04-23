@@ -1,10 +1,11 @@
+#!/usr/bin/env python
 # -*- coding: utf8 -*-
 
 from tsf.windows import *
 from tsf.pipeline import TSFPipeline
 from tsf.grid_search import TSFGridSearch
 
-from sklearn.linear_model import LassoCV, LogisticRegressionCV
+from sklearn.linear_model import LassoCV, LogisticRegression
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.metrics import mean_squared_error, confusion_matrix, accuracy_score, make_scorer
 from sklearn.ensemble import RandomForestClassifier
@@ -50,6 +51,7 @@ SCORERS = {
     'amae': [amae, False],
     'gm': [gm, True],
     'mae': [mae, False],
+    'mse': [mean_squared_error, False],
     'mmae': [mmae, False],
     'ms': [ms, True],
     'mze': [mze, False],
@@ -63,7 +65,8 @@ MODELS = {
     'LassoCV': LassoCV,
     'RandomForestClassifier': RandomForestClassifier,
     'MLPClassifier': MLPClassifier,
-    'MLPRegressor': MLPRegressor
+    'MLPRegressor': MLPRegressor,
+    'LogisticRegression': LogisticRegression
 }
 
 
@@ -195,7 +198,6 @@ def rvr():
 
 @ex.automain
 def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, _run):
-
     ex.info['run_id'] = _run._id
     reporter = TSFReporter(_run._id)
 
