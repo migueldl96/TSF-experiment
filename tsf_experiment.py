@@ -5,10 +5,16 @@ from tsf.windows import *
 from tsf.pipeline import TSFPipeline
 from tsf.grid_search import TSFGridSearch
 
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LassoCV, LogisticRegression
 from sklearn.neural_network import MLPRegressor, MLPClassifier
+from sklearn.neighbors import NearestNeighbors
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
+
 from sklearn.metrics import mean_squared_error, confusion_matrix, accuracy_score, make_scorer
-from sklearn.ensemble import RandomForestClassifier
 
 from reporter import TSFReporter
 
@@ -18,7 +24,6 @@ import numpy as np
 import pandas as pd
 
 from sacred import Experiment
-from sacred.observers import FileStorageObserver
 
 from scipy.stats.mstats import gmean
 
@@ -43,7 +48,6 @@ def umbralizer(sample):
 
 # Experiment object
 ex = Experiment()
-ex.observers.append(FileStorageObserver.create('reports'))
 
 # Scoring functions
 SCORERS = {
@@ -62,11 +66,20 @@ SCORERS = {
 
 # Models
 MODELS = {
+    # Regressors
     'LassoCV': LassoCV,
+    'MLPRegressor': MLPRegressor,
+
+    # Classifiers
     'RandomForestClassifier': RandomForestClassifier,
     'MLPClassifier': MLPClassifier,
-    'MLPRegressor': MLPRegressor,
-    'LogisticRegression': LogisticRegression
+    'LogisticRegression': LogisticRegression,
+    'NearestNeighbors': NearestNeighbors,
+    'GaussianProcessClassifier': GaussianProcessClassifier,
+    'SVC': SVC,
+    'DecisionTreeClassifier': DecisionTreeClassifier,
+    'GaussianNB': GaussianNB
+
 }
 
 
@@ -141,7 +154,6 @@ def set_best_params(best_config):
     # ClassChange
     best_params.update({'cc': {}})
     [best_params['cc'].update({key: value}) for key, value in best_config.iteritems() if 'cc__' in key.lower()]
-    best_params.update({'cc': {}})
     # Model
     best_params.update({'model': {}})
     [best_params['model'].update({key[7:]: value}) for key, value in best_config.iteritems() if 'model__' in key.lower()]
@@ -175,7 +187,7 @@ def configuration():
         'dw': {         # Dinamic Window based on stat limit parameters
             'dw__stat': ['variance'],                   # Stat to calculate window size
             'dw__metrics': [['mean', 'variance']],      # Stats to resume information of window
-            'dw__ratio': [0.1, 0.15, 0.2],                         # Stat ratio to limit window size
+            'dw__ratio': [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8],        # Stat ratio to limit window size
             'dw__indexs': [None]                        # Indexs of series to be used
         },
         'cc': {         # Dinamic window based on class change parameters
@@ -190,16 +202,18 @@ def configuration():
 
     }
 
+    run_id = -1
+
 
 @ex.named_config
 def rvr():
     files = ["RVR.txt", "temp.txt", "humidity.txt", "windDir.txt", "windSpeed.txt", "QNH.txt"]
 
-
 @ex.automain
-def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, _run):
-    ex.info['run_id'] = _run._id
-    reporter = TSFReporter(_run._id)
+def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, run_id):
+
+    ex.info['run_id'] = run_id
+    reporter = TSFReporter(run_id)
 
     # Read the data
     data = read_data(files)
@@ -261,4 +275,3 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, _run):
         reporter.set_confusion_matrix(cm)
 
     reporter.save()
-

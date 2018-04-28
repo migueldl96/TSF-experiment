@@ -1,6 +1,6 @@
 import os
 import numpy as np
-
+import glob
 
 class TSFReporter:
     def __init__(self, run_id):
@@ -17,7 +17,8 @@ class TSFReporter:
         self.confusion_matrix = None
 
     def save(self):
-        deep_path = 'reports/' + str(self.run_id) + '/deep'
+        deep_path = glob.glob('reports/report_' + str(self.run_id) + '*')[0]
+        deep_path += '/deep'
         if not os.path.exists(deep_path):
             os.makedirs(deep_path)
 
