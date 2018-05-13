@@ -8,9 +8,8 @@ from tsf.grid_search import TSFGridSearch
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LassoCV, LogisticRegression
 from sklearn.neural_network import MLPRegressor, MLPClassifier
-from sklearn.neighbors import NearestNeighbors
 from sklearn.gaussian_process import GaussianProcessClassifier
-from sklearn.svm import SVC
+from sklearn.svm import SVC, SVR
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.naive_bayes import GaussianNB
 
@@ -22,6 +21,7 @@ from metrics import *
 import random
 import numpy as np
 import pandas as pd
+import inspect
 
 from sacred import Experiment
 
@@ -30,21 +30,6 @@ from scipy.stats.mstats import gmean
 import sys
 reload(sys)
 sys.setdefaultencoding('utf8')
-
-
-def var_function(samples):
-    return np.var(samples)
-
-
-# RVR umbralizer
-def umbralizer(sample):
-    if sample < 1000:
-        return 2
-    elif 1000 < sample < 1990:
-        return 1
-    else:
-        return 0
-
 
 # Experiment object
 ex = Experiment()
@@ -69,12 +54,12 @@ MODELS = {
     # Regressors
     'LassoCV': LassoCV,
     'MLPRegressor': MLPRegressor,
+    'SVR': SVR,
 
     # Classifiers
     'RandomForestClassifier': RandomForestClassifier,
     'MLPClassifier': MLPClassifier,
     'LogisticRegression': LogisticRegression,
-    'NearestNeighbors': NearestNeighbors,
     'GaussianProcessClassifier': GaussianProcessClassifier,
     'SVC': SVC,
     'DecisionTreeClassifier': DecisionTreeClassifier,
@@ -116,13 +101,18 @@ def split_train_test(data, test_ratio):
 def create_pipe(pipe_steps, estimator, seed):
     steps = []
     if pipe_steps['cc']:
-        steps.append(("cc", ClassChange()))
+        steps.append(("cc", ClassChange(n_jobs=1)))
     if pipe_steps['dw']:
-        steps.append(("dw", DinamicWindow()))
+        steps.append(("dw", DinamicWindow(n_jobs=1)))
     if pipe_steps['ar']:
-        steps.append(("ar", SimpleAR()))
+        steps.append(("ar", SimpleAR(n_jobs=1)))
     if pipe_steps['model']:
-        steps.append(("model", MODELS[estimator](random_state=seed)))
+        model = MODELS[estimator]
+        if 'random_state' in inspect.getargspec(model.__init__)[0]:
+            steps.append(("model", MODELS[estimator](random_state=seed)))
+        else:
+            steps.append(("model", MODELS[estimator]()))
+
     return TSFPipeline(steps)
 
 
@@ -205,10 +195,6 @@ def configuration():
     run_id = -1
 
 
-@ex.named_config
-def rvr():
-    files = ["RVR.txt", "temp.txt", "humidity.txt", "windDir.txt", "windSpeed.txt", "QNH.txt"]
-
 @ex.automain
 def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, run_id):
 
@@ -225,10 +211,6 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, run_id):
     ex.info['seed'] = seed
     np.random.seed(seed)
     random.seed(seed)
-
-    # Umbralizer
-    if model_config['type'] == "classification":
-        data[0] = map(umbralizer, data[0])
 
     # Create pipe and set the config
     pipe = create_pipe(pipe_steps, model_config['estimator'], seed)
