@@ -1,5 +1,8 @@
 {
   "files": {
+    "train_path": "data/niebla/train/",
+    "test_path": "data/niebla/test/",
+
     "classification": [
       "RVR.txt",
       "temp.txt",
@@ -17,97 +20,38 @@
     ]
   },
 
+  "outputs": {
+    "reports": "reports/",
+    "condor" : "condor/mlp/"
+  },
+
+
   "models":
   [{
-    "estimator": "SVC",
-    "type": "classification",
-    "scoring": "amae",
-    "params": {
-      "kernel": [
-        "rbf"
-      ],
-      "C": [
-        0.001,
-        0.01,
-        0.1,
-        1,
-        10,
-        100,
-        1000
-      ],
-      "gamma": [
-        0.001,
-        0.01,
-        0.1,
-        1,
-        10,
-        100,
-        1000
-      ]
-    }
-  },
-  {
-    "estimator": "RandomForestClassifier",
-    "type": "classification",
-    "scoring": "amae",
-    "params": {
-      "n_estimators": [
-        10,
-        50,
-        100
-      ]
-    }
-  },
-  {
-    "estimator": "DecisionTreeClassifier",
-    "type": "classification",
-    "scoring": "amae",
-    "params": {
-      "criterion": [
-        "gini"
-      ]
-    }
-  },
-  {
-    "estimator": "LogisticRegression",
-    "type": "classification",
-    "scoring": "amae",
-    "params": {
-      "C": [
-        0.001,
-        0.01,
-        0.1,
-        1,
-        10,
-        100,
-        1000
-      ]
-    }
-  },
-  {
-    "estimator": "LassoCV",
+    "estimator": "MLPRegressor",
     "type": "regression",
     "scoring": "mse",
     "params": {
-      "n_jobs": [
-        1
-      ]
-    }
-  },
-  {
-    "estimator": "SVR",
-    "type": "regression",
-    "scoring": "mse",
-    "params": {
-      "epsilon": [
+      "hidden_layer_sizes": [
+        [5, 5],
+        [10, 10],
+        [15, 15]
+      ],
+      "learning_rate_init": [
         0.001,
-        0.01,
-        0.1,
-        1,
-        10,
-        100,
-        1000
+        0.0001,
+        0.00001
+      ],
+      "activation": [
+        "relu",
+        "logistic"
+
+      ],
+      "max_iter": [
+        2500,
+        3000
       ]
+
     }
   }],
 
@@ -122,16 +66,14 @@
 "windows_config": {
   "horizon": 1,
   "ar": {
-    "ar__n_prev": [2, 3, 4, 5, 6, 7, 8]
+    "ar__n_prev": [1, 2, 3, 6]
   },
   "dw": {
-    "dw__stat": ["variance"],
-    "dw__metrics": [["mean", "variance"]],
-    "dw__ratio": [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8],
-    "dw__indexs": [[0, 1, 2, 3, 4, 5]]
+    "dw__ratio": [0.005, 0.01, 0.05, 0.1, 0.15],
+    "dw__indexs": [[0, 1, 2, 3, 4]]
   },
   "cc": {
-    "cc__metrics": [["mean", "variance"]]
+
   }
 },
 

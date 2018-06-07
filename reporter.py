@@ -3,9 +3,10 @@ import numpy as np
 import glob
 
 class TSFReporter:
-    def __init__(self, run_id):
+    def __init__(self, run_id, report_path):
 
         self.run_id = run_id
+        self.report_path = report_path
         self.task_type = None
         # Result info
         self.real_train_serie = None
@@ -17,7 +18,7 @@ class TSFReporter:
         self.confusion_matrix = None
 
     def save(self):
-        deep_path = glob.glob('reports/report_' + str(self.run_id) + '*')[0]
+        deep_path = glob.glob(self.report_path + 'report_' + str(self.run_id) + '*')[0]
         deep_path += '/deep'
         if not os.path.exists(deep_path):
             os.makedirs(deep_path)

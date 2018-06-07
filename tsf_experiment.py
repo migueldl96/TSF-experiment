@@ -5,12 +5,12 @@ from tsf.windows import *
 from tsf.pipeline import TSFPipeline
 from tsf.grid_search import TSFGridSearch
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LassoCV, LogisticRegression
 from sklearn.neural_network import MLPRegressor, MLPClassifier
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.svm import SVC, SVR
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 from sklearn.naive_bayes import GaussianNB
 
 from sklearn.metrics import mean_squared_error, confusion_matrix, accuracy_score, make_scorer
@@ -55,6 +55,7 @@ MODELS = {
     'LassoCV': LassoCV,
     'MLPRegressor': MLPRegressor,
     'SVR': SVR,
+    'DecisionTreeRegressor': DecisionTreeRegressor,
 
     # Classifiers
     'RandomForestClassifier': RandomForestClassifier,
@@ -63,49 +64,48 @@ MODELS = {
     'GaussianProcessClassifier': GaussianProcessClassifier,
     'SVC': SVC,
     'DecisionTreeClassifier': DecisionTreeClassifier,
-    'GaussianNB': GaussianNB
+    'GaussianNB': GaussianNB,
+    'GradientBoostingClassifier': GradientBoostingClassifier
 
 }
 
 
-def read_data(files):
-    data = []
-
-    if not files:
-        raise ValueError("There is no data. Please use -f to select a file to read.")
-
+def read_data(files, train_path, test_path):
+    # train
+    train = []
     for file in files:
-        path = 'data/' + file
+        path = train_path + file
         single_serie = pd.read_csv(path, header=None).values
         single_serie = single_serie.reshape(1, single_serie.shape[0])
 
-        if len(data) == 0:
-            data = single_serie
+        if len(train) == 0:
+            train = single_serie
         else:
-            data = np.append(data, single_serie, axis=0)
+            train = np.append(train, single_serie, axis=0)
 
-    return data
+    # test
+    test = []
+    for file in files:
+        path = test_path + file
+        single_serie = pd.read_csv(path, header=None).values
+        single_serie = single_serie.reshape(1, single_serie.shape[0])
 
+        if len(test) == 0:
+            test = single_serie
+        else:
+            test = np.append(test, single_serie, axis=0)
 
-def split_train_test(data, test_ratio):
-    train_ratio = 1-test_ratio
-
-    if len(data.shape) == 1:
-        train_samples = int(len(data) * train_ratio)
-        return data[:train_samples], data[train_samples:]
-    else:
-        train_samples = int(len(data[0]) * train_ratio)
-        return data[:, :train_samples], data[:, train_samples:]
+    return train, test
 
 
 def create_pipe(pipe_steps, estimator, seed):
     steps = []
     if pipe_steps['cc']:
-        steps.append(("cc", ClassChange(n_jobs=1)))
+        steps.append(("cc", ClassChange(n_jobs=-1)))
     if pipe_steps['dw']:
-        steps.append(("dw", DinamicWindow(n_jobs=1)))
+        steps.append(("dw", DinamicWindow(n_jobs=-1)))
     if pipe_steps['ar']:
-        steps.append(("ar", SimpleAR(n_jobs=1)))
+        steps.append(("ar", SimpleAR(n_jobs=-1)))
     if pipe_steps['model']:
         model = MODELS[estimator]
         if 'random_state' in inspect.getargspec(model.__init__)[0]:
@@ -154,10 +154,10 @@ def set_best_params(best_config):
 def configuration():
     seed = 1
 
-    # ratio of samples for testing
-    test_ratio = 0.3
-
     # files where time series are located
+    reports_path = "reports/"
+    train_path = "data/train"
+    test_path = "data/test"
     files = ["RVR.txt", "humidity.txt", "windDir.txt", "windSpeed.txt", "QNH.txt", "temp.txt"]
 
     # steps of the model
@@ -172,18 +172,17 @@ def configuration():
     tsf_config = {
         'horizon': 1,   # Forecast distance
         'ar': {         # Standard autorregresive parameters
-            'ar__n_prev': [2, 3, 4, 5, 6, 7, 8]         # Number of previous samples to use
+            'ar__n_prev': [1, 2, 3, 4, 5, 6, 7, 8]         # Number of previous samples to use
         },
         'dw': {         # Dinamic Window based on stat limit parameters
             'dw__stat': ['variance'],                   # Stat to calculate window size
             'dw__metrics': [['mean', 'variance']],      # Stats to resume information of window
-            'dw__ratio': [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8],        # Stat ratio to limit window size
+            'dw__ratio': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],        # Stat ratio to limit window size
             'dw__indexs': [None]                        # Indexs of series to be used
         },
         'cc': {         # Dinamic window based on class change parameters
             'cc__metrics': [['mean', 'variance']],      # Stats to resume information of window
             'cc__indexs': [None],                       # Indexs of series to be used
-            'cc__umbralizer': [None]
         },
     }
 
@@ -196,13 +195,13 @@ def configuration():
 
 
 @ex.automain
-def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, run_id):
+def main(files, pipe_steps, tsf_config, model_config, seed, run_id, train_path, test_path, reports_path):
 
     ex.info['run_id'] = run_id
-    reporter = TSFReporter(run_id)
+    reporter = TSFReporter(run_id, reports_path)
 
     # Read the data
-    data = read_data(files)
+    train, test = read_data(files, train_path, test_path)
     ex.info['endog'] = files[0]
     if len(files) > 1:
         ex.info['exogs'] = files[1:]
@@ -216,15 +215,13 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, run_id):
     pipe = create_pipe(pipe_steps, model_config['estimator'], seed)
     params = get_params(pipe_steps, tsf_config, model_config)
 
-    # Split
-    train, test = split_train_test(data, test_ratio)
-
     # Create and fit TSFGridSearch
     scorer = SCORERS[model_config['scoring']]
     scoring = make_scorer(scorer[0], greater_is_better=scorer[1])
     gs = TSFGridSearch(pipe, params, scoring=scoring)
     gs.fit(X=[], y=train)
     set_best_params(gs.best_params_)
+    print gs.best_params_
 
     # Predict using Pipeline
     predicted_train = gs.predict(train)
@@ -244,7 +241,12 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, run_id):
         ex.info['performance'] = {"mse": {}}
         ex.info['performance']['mse'] = {"train": mse_train, "test": mse_test}
 
+        print "MSE Train: " + str(mse_train)
+        print "MSE Test: " + str(mse_test)
+
     elif model_config['type'] == 'classification':
+        print true_train
+        print predicted_train
         ccr_train = accuracy_score(true_train, predicted_train)
         ccr_test = accuracy_score(true_test, predicted_test)
         ex.info['performance'] = {"ccr": {}}
@@ -253,6 +255,13 @@ def main(files, test_ratio, pipe_steps, tsf_config, model_config, seed, run_id):
         tprs = [float(cm[index, index])/np.sum(cm, axis=1)[index] for index in range(0, cm.shape[0])]
         ex.info['performance']['ms'] = min(tprs)
         ex.info['performance']['gm'] = gmean(tprs)
+
+        print "CCR Train: " + str(ccr_train)
+        print "CCR Test: " + str(ccr_test)
+        print "GMS: " + str(gmean(tprs))
+        print "MS: " + str(min(tprs))
+        print "CM"
+        print cm
 
         reporter.set_confusion_matrix(cm)
 

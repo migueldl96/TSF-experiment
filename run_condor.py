@@ -6,14 +6,12 @@ import os
 import click
 
 
-def generate_configs_files(models, windows, seeds, files, windows_config):
+def generate_configs_files(models, windows, seeds, files, windows_config, outputs):
     id = 0
     if not os.path.exists('config/.tmp/'):
         os.makedirs('config/.tmp/')
     for model in models:
         # Dont apply DinamicWindow to endogenous if classification
-        if model['type'] == "classification":
-            windows_config['dw']['dw__indexs'] = [[1, 2, 3, 4]]
         for ar_window in windows['ar']:
             for dw_window in windows['dw']:
                 for cc_window in windows['cc']:
@@ -28,8 +26,11 @@ def generate_configs_files(models, windows, seeds, files, windows_config):
                                         "dw": dw_window,
                                         "cc": cc_window
                                     },
-                                    "seed": seed,
+                                    "seed":  seed,
                                     "files": files[model['type']],
+                                    "train_path": files["train_path"],
+                                    "test_path":  files["test_path"],
+                                    "reports_path": outputs["reports"],
                                     "tsf_config": windows_config
                                 }, f)
                             id = id+1
@@ -47,7 +48,7 @@ def condor(config_file):
         raise IOError("File '%s' does not exist." % config_file)
 
     # Generate temp config files
-    generate_configs_files(ex_config['models'], ex_config['windows'], ex_config['seeds'], ex_config['files'], ex_config['windows_config'])
+    generate_configs_files(ex_config['models'], ex_config['windows'], ex_config['seeds'], ex_config['files'], ex_config['windows_config'], ex_config['outputs'])
 
     # Parameters
     num_seeds = len(ex_config['seeds'])
@@ -57,6 +58,14 @@ def condor(config_file):
 
     num_models = num_classification + num_regression
     num_process = num_seeds * num_windows_comb * num_models
+
+    # Output paths
+    if not os.path.exists(ex_config["outputs"]["condor"]):
+        os.makedirs(ex_config["outputs"]["condor"])
+        os.makedirs(ex_config["outputs"]["condor"] + '/outputs')
+        os.makedirs(ex_config["outputs"]["condor"] + '/errors')
+        os.makedirs(ex_config["outputs"]["condor"] + '/logs')
+
 
     # Schedd object: Jobs execution manager
     schedd = htcondor.Schedd()
@@ -74,11 +83,11 @@ def condor(config_file):
     sub['cmd'] = '/usr/bin/env'
     sub['arguments'] = 'python tsf_experiment.py with config/.tmp/config$(ProcId).json ' \
                        'run_id=$(ProcId) ' \
-                       '-F reports2/report_$(ProcId)_model$INT(model)_comb$INT(window)_seed$INT(seed)'
+                       '-F' + str(ex_config["outputs"]["reports"]) + '/report_$(ProcId)_model$INT(model)_comb$INT(window)_seed$INT(seed)'
     sub['getenv'] = "True"
-    sub['output'] = 'condor/outputs/output$(ProcId).out'
-    sub['error'] = 'condor/errors/error$(ProcId).out'
-    sub['log'] = 'condor/logs/log$(ProcId).out'
+    sub['output'] = str(ex_config["outputs"]["condor"]) + '/outputs/output$(ProcId).out'
+    sub['error'] = str(ex_config["outputs"]["condor"]) + '/errors/error$(ProcId).out'
+    sub['log'] = str(ex_config["outputs"]["condor"]) + '/logs/log$(ProcId).out'
 
     # Queue subs
     with schedd.transaction() as txn:
