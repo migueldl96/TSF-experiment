@@ -1,0 +1,55 @@
+{
+  "files": [
+      "temp.txt",
+      "humidity.txt",
+      "windDir.txt",
+      "windSpeed.txt",
+      "QNH.txt"
+      ],
+
+  "model_config":
+  {
+    "estimator": "MLPRegressor",
+    "type": "regression",
+    "scoring": "mse",
+    "params": {
+      "hidden_layer_sizes": [
+        [10, 10, 10]
+      ],
+      "learning_rate_init": [
+        0.01,
+        0.001
+      ],
+      "activation": [
+        "relu"
+      ],
+      "max_iter": [
+        2000
+      ]
+    }
+  },
+
+  "pipe_steps": {
+        "ar": true,
+        "dw": true,
+        "cc": false,
+        "model": true
+  },
+
+
+"tsf_config": {
+  "horizon": 1,
+  "ar": {
+    "ar__n_prev": [1, 2, 3]
+  },
+  "dw": {
+    "dw__ratio": [0.01, 0.05],
+    "dw__indexs": [[0, 1, 2, 3, 4]]
+  },
+  "cc": {
+
+  }
+},
+
+"seed": 10
+  }

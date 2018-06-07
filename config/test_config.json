@@ -1,0 +1,64 @@
+{
+  "files": {
+    "train_path": "data/niebla_dia/train/",
+    "test_path": "data/niebla_dia/test/",
+
+    "classification": [
+      "RVR.txt",
+      "temp.txt",
+      "humidity.txt",
+      "windDir.txt",
+      "windSpeed.txt",
+      "QNH.txt"
+    ],
+    "regression": [
+      "temp.txt",
+      "humidity.txt",
+      "windDir.txt",
+      "windSpeed.txt",
+      "QNH.txt"
+    ]
+  },
+
+  "outputs": {
+    "reports": "reports_test/",
+    "condor" : "condor/test/"
+  },
+
+
+  "models":
+  [{
+    "estimator": "LassoCV",
+    "type": "regression",
+    "scoring": "mse",
+    "params": {
+      "n_alphas": [
+        100
+      ]
+    }
+  }],
+
+
+"windows": {
+  "ar": [true, false],
+  "dw": [false],
+  "cc": [false]
+},
+
+
+"windows_config": {
+  "horizon": 1,
+  "ar": {
+    "ar__n_prev": [1, 2]
+  },
+  "dw": {
+    "dw__ratio": [0.005, 0.01, 0.05, 0.1, 0.15],
+    "dw__indexs": [[0, 1, 2, 3, 4]]
+  },
+  "cc": {
+
+  }
+},
+
+"seeds": [10, 20, 30, 40, 50]
+}

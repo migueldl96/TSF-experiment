@@ -1,0 +1,49 @@
+{
+  "files": [
+      "temp.txt",
+      "humidity.txt",
+      "windDir.txt",
+      "windSpeed.txt",
+      "QNH.txt"
+      ],
+
+  "reports_path": "reports_test/",
+  "train_path": "data/niebla_dia/train/",
+  "test_path": "data/niebla_dia/test/",
+
+  "model_config":
+  {
+    "estimator": "LassoCV",
+    "type": "regression",
+    "scoring": "mse",
+    "params": {
+      "n_alphas": [
+        100
+      ]
+    }
+  },
+
+  "pipe_steps": {
+        "ar": true,
+        "dw": false,
+        "cc": false,
+        "model": true
+  },
+
+
+"tsf_config": {
+  "horizon": 1,
+  "ar": {
+    "ar__n_prev": [1]
+  },
+  "dw": {
+    "dw__ratio": [0.01, 0.05],
+    "dw__indexs": [[0, 1, 2, 3, 4]]
+  },
+  "cc": {
+
+  }
+},
+
+"seed": 10
+  }

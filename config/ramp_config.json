@@ -1,0 +1,122 @@
+{
+  "files": {
+    "classification": [
+      "ramp.txt",
+      "windSpeed.txt",
+      "windDir.txt",
+      "rea1.txt",
+      "rea2.txt",
+      "rea3.txt",
+      "rea4.txt",
+      "rea5.txt",
+      "rea6.txt",
+      "rea7.txt",
+      "rea8.txt",
+      "rea9.txt",
+      "rea10.txt",
+      "rea11.txt",
+      "rea12.txt"
+    ]
+  },
+  "models": [
+    {
+    "estimator": "GradientBoostingClassifier",
+    "type": "classification",
+    "scoring": "gm",
+    "params": {
+      "learning_rate": [
+        0.05,
+        0.1,
+        0.2,
+        0.3
+      ],
+      "n_estimators": [
+        50,
+        100,
+        150,
+        200
+      ]
+    }
+  },
+  {
+    "estimator": "RandomForestClassifier",
+    "type": "classification",
+    "scoring": "gm",
+    "params": {
+      "n_estimators": [
+        10,
+        50,
+        100
+      ],
+      "class_weight": [
+        "balanced"
+      ]
+    }
+  },
+  {
+    "estimator": "DecisionTreeClassifier",
+    "type": "classification",
+    "scoring": "gm",
+    "params": {
+      "criterion": [
+        "gini"
+      ],
+      "class_weight": [
+        "balanced"
+      ]
+    }
+  },
+    {
+      "estimator": "LogisticRegression",
+      "type": "classification",
+      "scoring": "gm",
+      "params": {
+        "C": [
+          0.001,
+          0.01,
+          0.1,
+          1,
+          10,
+          100,
+          1000
+        ],
+        "class_weight": [
+          "balanced"
+        ]
+      }
+    }],
+  "windows": {
+    "ar": [
+      true,
+      false
+    ],
+    "dw": [
+      true,
+      false
+    ],
+    "cc": [
+      true,
+      false
+    ]
+  },
+"windows_config": {
+  "horizon": 1,
+  "ar": {
+    "ar__n_prev": [1, 2, 3, 4, 5, 6, 7, 8]
+  },
+  "dw": {
+    "dw__ratio": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6],
+    "dw__indexs": [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]]
+  },
+  "cc": {
+
+  }
+},
+  "seeds": [
+    10,
+    20,
+    30,
+    40,
+    50
+  ]
+}

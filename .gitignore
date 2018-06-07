@@ -1,8 +1,9 @@
 .idea
 *.pyc
-reports/_sources
 REP
 condor
 results
-reports
 config/tmp
+config/.tmp
+run.json
+reports*

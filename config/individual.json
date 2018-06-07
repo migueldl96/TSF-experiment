@@ -1,0 +1,52 @@
+{
+  "files": [
+      "RVR.txt",
+      "temp.txt",
+      "humidity.txt",
+      "windDir.txt",
+      "windSpeed.txt",
+      "QNH.txt"
+      ],
+
+  "model_config":
+  {
+    "estimator": "LogisticRegression",
+    "type": "classification",
+    "scoring": "gm",
+    "params": {
+      "C": [
+        0.001,
+        0.01,
+        0.1,
+        1,
+        10,
+        100,
+        1000
+      ]
+    }
+  },
+
+  "pipe_steps": {
+        "ar": true,
+        "dw": true,
+        "cc": true,
+        "model": true
+  },
+
+
+"tsf_config": {
+  "horizon": 1,
+  "ar": {
+    "ar__n_prev": [1, 2, 3, 4, 5, 6, 7, 8]
+  },
+  "dw": {
+    "dw__ratio": [0.1, 0.2, 0.3, 0.4, 0.6],
+    "dw__indexs": [[0, 1, 2, 3, 4, 5]]
+  },
+  "cc": {
+
+  }
+},
+
+"seed": 10
+  }
